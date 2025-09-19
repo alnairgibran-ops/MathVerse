@@ -1,312 +1,261 @@
-// script.js - Math Challenge game logic (vanilla JS)
-// Added features:
-// - Difficulty levels (easy/medium/hard)
-// - Sound effects toggle
-// - High score (localStorage)
-// - Clean modular structure with comments
+document.addEventListener('DOMContentLoaded', () => {
+    // --- DOM Elements ---
+    const screens = document.querySelectorAll('.screen');
+    const modeButtons = document.querySelectorAll('.mode-button');
+    const backButtons = document.querySelectorAll('.back-button');
+    const soundToggle = document.getElementById('sound-toggle');
 
-// --- Utilities ---
-function qs(selector){return document.querySelector(selector)}
-function qsa(selector){return Array.from(document.querySelectorAll(selector))}
+    // Game Screen Elements
+    const scoreDisplay = document.getElementById('score');
+    const gameStatsDisplay = document.getElementById('game-stats');
+    const questionDisplay = document.getElementById('question');
+    const optionsContainer = document.getElementById('options-container');
+    const feedbackDisplay = document.getElementById('feedback');
+    
+    // Learn Screen Elements
+    const tableContainer = document.getElementById('multiplication-table-container');
 
-// DOM refs
-const menuScreen = qs('#menu-screen')
-const gameScreen = qs('#game-screen')
-const resultScreen = qs('#result-screen')
-const scoreEl = qs('#score')
-const highscoreEl = qs('#highscore')
-const modeLabel = qs('#mode-label')
-const timerEl = qs('#timer')
-const heartsEl = qs('#hearts')
-const questionEl = qs('#question')
-const answersEl = qs('#answers')
-const finalScoreEl = qs('#final-score')
-const resultHighEl = qs('#result-high')
-const playAgainBtn = qs('#play-again')
-const backMenuBtn = qs('#back-menu')
-const quitBtn = qs('#quit-btn')
-const nextBtn = qs('#next-btn')
-const soundToggleBtn = qs('#toggle-sound')
-const resetHighBtn = qs('#reset-highscore')
+    // End Screen Elements
+    const endTitle = document.getElementById('end-title');
+    const endMessage = document.getElementById('end-message');
+    const finalScoreDisplay = document.getElementById('final-score');
+    const playAgainBtn = document.getElementById('play-again-btn');
 
-// Difficulty buttons
-const diffButtons = qsa('.diff')
-let chosenDifficulty = localStorage.getItem('mc_difficulty') || 'medium'
+    // Audio Elements
+    const correctSound = document.getElementById('correct-sound');
+    const wrongSound = document.getElementById('wrong-sound');
+    const winSound = document.getElementById('win-sound');
+    const loseSound = document.getElementById('lose-sound');
+    
+    // --- Game State ---
+    let currentMode = '';
+    let score = 0;
+    let lives = 3;
+    let timeLeft = 60;
+    let gameInterval;
+    let isSoundOn = true;
+    let currentCorrectAnswer = 0;
 
-// Sound (simple using Audio API) - small beep using data URI or generate via oscillator? we'll use short audio via WebAudio API
-let soundEnabled = (localStorage.getItem('mc_sound') || '1') === '1'
+    // --- Sound Handling ---
+    // A fallback for the Base64 audio if it fails to load
+    const createTone = (freq) => {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        return (duration) => {
+            const oscillator = audioCtx.createOscillator();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            oscillator.connect(audioCtx.destination);
+            oscillator.start();
+            setTimeout(() => oscillator.stop(), duration);
+        };
+    };
 
-// Game state
-let state = {
-  mode: null, // 'practice' | 'survival' | 'timer'
-  score: 0,
-  hearts: 3,
-  timer: 60,
-  currentAnswer: null,
-  questionTimeout: null,
-  countdownInterval: null,
-  acceptingInput: true,
-  difficulty: chosenDifficulty,
-}
+    const playCorrectSound = correctSound.src.includes('data:audio') ? () => correctSound.play() : createTone(523.25)(100);
+    const playWrongSound = wrongSound.src.includes('data:audio') ? () => wrongSound.play() : createTone(261.63)(200);
+    const playWinSound = winSound.src.includes('data:audio') ? () => winSound.play() : createTone(783.99)(300);
+    const playLoseSound = loseSound.src.includes('data:audio') ? () => loseSound.play() : createTone(196.00)(400);
 
-// High score key
-const HS_KEY = 'mc_best_score_v1'
-
-// --- Init UI ---
-function initUI(){
-  // set difficulty button active
-  diffButtons.forEach(b=>{
-    b.classList.toggle('active', b.dataset.diff === state.difficulty)
-    b.addEventListener('click', ()=>{
-      state.difficulty = b.dataset.diff
-      localStorage.setItem('mc_difficulty', state.difficulty)
-      diffButtons.forEach(x=>x.classList.toggle('active', x===b))
-    })
-  })
-
-  // menu mode buttons
-  qsa('.menu-buttons .btn').forEach(btn=>{
-    btn.addEventListener('click', ()=> startMode(btn.dataset.mode))
-  })
-
-  backMenuBtn.addEventListener('click', ()=> showMenu())
-  quitBtn.addEventListener('click', ()=> showMenu())
-  playAgainBtn.addEventListener('click', ()=> startMode(state.mode || 'practice'))
-  soundToggleBtn.addEventListener('click', toggleSound)
-  resetHighBtn.addEventListener('click', ()=>{
-    localStorage.removeItem(HS_KEY)
-    updateHighScoreDisplay()
-  })
-
-  // set sound button text
-  updateSoundButton()
-
-  // keyboard shortcuts
-  window.addEventListener('keydown', (e)=>{
-    if(!gameScreen.classList.contains('active')) return
-    const btns = qsa('.answer-btn')
-    if(btns.length === 0) return
-    if(e.key >= '1' && e.key <= '4'){
-      const idx = Number(e.key)-1
-      if(btns[idx]) btns[idx].click()
+    function playSound(soundFunction) {
+        if (isSoundOn) {
+            try { soundFunction(); } catch (e) { console.warn("Audio playback failed.", e); }
+        }
     }
-  })
 
-  updateHighScoreDisplay()
-}
+    soundToggle.addEventListener('click', () => {
+        isSoundOn = !isSoundOn;
+        soundToggle.textContent = isSoundOn ? '🔊' : '🔇';
+    });
 
-// --- Screen helpers ---
-function showMenu(){
-  clearTimers()
-  state.mode = null
-  updateStatus()
-  setActiveScreen('menu')
-}
-function setActiveScreen(name){
-  menuScreen.classList.toggle('active', name==='menu')
-  gameScreen.classList.toggle('active', name==='game')
-  resultScreen.classList.toggle('active', name==='result')
-}
+    // --- Navigation ---
+    const showScreen = (screenId) => {
+        screens.forEach(screen => screen.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    };
 
-function updateStatus(){
-  scoreEl.textContent = state.score
-  modeLabel.textContent = state.mode ? capitalize(state.mode) : '-'
-  timerEl.textContent = state.mode === 'timer' ? ${state.timer}s : (state.mode === 'practice' ? '--' : (state.mode === 'survival' ? '--' : '--'))
-  heartsEl.innerHTML = state.mode === 'survival' ? '❤️'.repeat(state.hearts) : (state.mode === 'survival' ? '❤️'.repeat(state.hearts) : '--')
-}
+    modeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            currentMode = button.dataset.mode;
+            if (currentMode === 'learn') {
+                generateLearnTable();
+                showScreen('learn-screen');
+            } else {
+                startGame();
+            }
+        });
+    });
 
-function capitalize(s){return s ? s[0].toUpperCase()+s.slice(1) : ''}
+    backButtons.forEach(button => button.addEventListener('click', () => {
+        clearInterval(gameInterval);
+        showScreen('main-menu');
+    }));
+    
+    playAgainBtn.addEventListener('click', startGame);
 
-// --- Start Modes ---
-function startMode(mode){
-  state.mode = mode
-  state.score = 0
-  state.hearts = 3
-  state.timer = 60
-  state.acceptingInput = true
-  state.difficulty = state.difficulty || chosenDifficulty
-  updateStatus()
-  setActiveScreen('game')
-
-  if(mode === 'timer'){
-    startCountdown()
-  }
-
-  loadNextQuestion()
-}
-
-function clearTimers(){
-  if(state.questionTimeout) clearTimeout(state.questionTimeout)
-  if(state.countdownInterval) clearInterval(state.countdownInterval)
-}
-
-// --- Countdown ---
-function startCountdown(){
-  timerEl.textContent = ${state.timer}s
-  if(state.countdownInterval) clearInterval(state.countdownInterval)
-  state.countdownInterval = setInterval(()=>{
-    state.timer -= 1
-    timerEl.textContent = ${state.timer}s
-    if(state.timer <= 0){
-      clearInterval(state.countdownInterval)
-      endGame()
+    // --- Learn Mode ---
+    function generateLearnTable() {
+        tableContainer.innerHTML = '';
+        for (let i = 0; i <= 12; i++) {
+            for (let j = 0; j <= 12; j++) {
+                const cell = document.createElement('div');
+                cell.classList.add('table-cell');
+                let content = '';
+                if (i === 0 && j > 0) { content = j; cell.classList.add('header'); }
+                else if (j === 0 && i > 0) { content = i; cell.classList.add('header'); }
+                else if (i > 0 && j > 0) { content = i * j; }
+                else if (i === 0 && j === 0) { content = '×'; cell.classList.add('header');}
+                cell.textContent = content;
+                if (i > 0 && j > 0) {
+                    cell.addEventListener('click', () => {
+                        document.querySelectorAll('.table-cell.highlight').forEach(c => c.classList.remove('highlight'));
+                        cell.classList.add('highlight');
+                    });
+                }
+                tableContainer.appendChild(cell);
+            }
+        }
     }
-  }, 1000)
-}
 
-// --- Question generation with difficulty ---
-function randomInt(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+    // --- Game Logic ---
+    function startGame() {
+        score = 0;
+        lives = 3;
+        timeLeft = 60;
+        clearInterval(gameInterval);
+        
+        updateHUD();
+        showScreen('game-screen');
+        nextQuestion();
 
-function getRangeByDifficulty(){
-  switch(state.difficulty){
-    case 'easy': return {min:2, max:8}
-    case 'hard': return {min:6, max:18}
-    case 'medium':
-    default: return {min:2, max:12}
-  }
-}
-
-function generateQuestion(){
-  const range = getRangeByDifficulty()
-  const isMultiply = Math.random() < 0.55
-  let a,b,questionText,answer
-  if(isMultiply){
-    a = randomInt(range.min, range.max)
-    b = randomInt(range.min, range.max)
-    answer = a * b
-    questionText = ${a} × ${b} = ?
-  } else {
-    a = randomInt(range.min, range.max)
-    b = randomInt(range.min, range.max)
-    answer = b
-    questionText = ${a*b} ÷ ${a} = ?
-  }
-  return {questionText, answer}
-}
-
-function makeChoices(correct){
-  const choices = new Set([correct])
-  const spread = Math.max(6, Math.abs(correct))
-  while(choices.size < 4){
-    const offset = Math.round((Math.random()*0.8 + 0.2) * (Math.random()<0.5 ? -1 : 1) * (Math.max(1, Math.ceil(spread/6))))
-    let val = correct + offset
-    if(val <= 0) val = Math.abs(val) + 1
-    if(Math.random() < 0.12) val = correct + randomInt(-12,12)
-    choices.add(val)
-  }
-  return Array.from(choices).sort(()=>Math.random()-0.5)
-}
-
-// --- Sounds via WebAudio ---
-const audioCtx = window.AudioContext ? new AudioContext() : null
-function playTone(freq=440, duration=0.07){
-  if(!soundEnabled || !audioCtx) return
-  try{
-    const o = audioCtx.createOscillator()
-    const g = audioCtx.createGain()
-    o.type = 'sine'
-    o.frequency.value = freq
-    o.connect(g)
-    g.connect(audioCtx.destination)
-    g.gain.setValueAtTime(0.0001, audioCtx.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.01)
-    o.start()
-    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration)
-    setTimeout(()=>{ o.stop(); o.disconnect(); g.disconnect() }, duration*1000 + 50)
-  }catch(e){/* ignore */}
-}
-
-function playCorrect(){ playTone(880, 0.08) }
-function playWrong(){ playTone(220, 0.12) }
-
-function toggleSound(){
-  soundEnabled = !soundEnabled
-  localStorage.setItem('mc_sound', soundEnabled ? '1' : '0')
-  updateSoundButton()
-}
-function updateSoundButton(){
-  soundToggleBtn.textContent = soundEnabled ? 'Sound: On' : 'Sound: Off'
-}
-
-// --- UI: load question & answers ---
-function loadNextQuestion(){
-  clearTimeout(state.questionTimeout)
-  state.acceptingInput = true
-  answersEl.innerHTML = ''
-  const q = generateQuestion()
-  state.currentAnswer = q.answer
-  questionEl.textContent = q.questionText
-
-  const choices = makeChoices(q.answer)
-  choices.forEach(c=>{
-    const b = document.createElement('button')
-    b.className = 'answer-btn'
-    b.textContent = c
-    b.addEventListener('click', ()=> selectAnswer(b, c))
-    answersEl.appendChild(b)
-  })
-
-  updateStatus()
-}
-
-function selectAnswer(btn, value){
-  if(!state.acceptingInput) return
-  state.acceptingInput = false
-
-  const correct = Number(value) === Number(state.currentAnswer)
-  if(correct){
-    btn.classList.add('correct')
-    state.score += 1
-    playCorrect()
-  } else {
-    btn.classList.add('wrong')
-    playWrong()
-    // show correct button
-    const correctBtn = Array.from(qsa('.answer-btn')).find(x=>Number(x.textContent) === Number(state.currentAnswer))
-    if(correctBtn) correctBtn.classList.add('correct')
-
-    if(state.mode === 'survival'){
-      state.hearts -= 1
-      if(state.hearts <= 0){
-        updateStatus()
-        state.questionTimeout = setTimeout(()=> endGame(), 900)
-        return
-      }
+        if (currentMode === 'timer') {
+            gameInterval = setInterval(updateTimer, 1000);
+        }
     }
-  }
 
-  updateStatus()
-  state.questionTimeout = setTimeout(()=>{
-    if(state.mode === 'practice'){
-      loadNextQuestion()
-    } else if(state.mode === 'timer'){
-      if(state.timer > 0) loadNextQuestion()
-      else endGame()
-    } else if(state.mode === 'survival'){
-      if(state.hearts > 0) loadNextQuestion()
-      else endGame()
+    function updateHUD() {
+        scoreDisplay.textContent = Score: ${score};
+        switch (currentMode) {
+            case 'survival':
+                gameStatsDisplay.textContent = Lives: ${'♥'.repeat(lives)};
+                break;
+            case 'timer':
+                gameStatsDisplay.textContent = Time: ${timeLeft}s;
+                break;
+            default:
+                gameStatsDisplay.textContent = '';
+        }
     }
-  }, 900)
-}
 
-// --- End game / results + high score ---
-function endGame(){
-  clearTimers()
-  finalScoreEl.textContent = state.score
-  // update highscore
-  const best = Number(localStorage.getItem(HS_KEY) || 0)
-  if(state.score > best){
-    localStorage.setItem(HS_KEY, String(state.score))
-  }
-  updateHighScoreDisplay()
-  resultHighEl.textContent = localStorage.getItem(HS_KEY) || '0'
-  setActiveScreen('result')
-}
+    function updateTimer() {
+        timeLeft--;
+        updateHUD();
+        if (timeLeft <= 0) {
+            clearInterval(gameInterval);
+            endGame(true);
+        }
+    }
 
-function updateHighScoreDisplay(){
-  highscoreEl.textContent = localStorage.getItem(HS_KEY) || '0'
-}
+    function nextQuestion() {
+        feedbackDisplay.textContent = '';
+        let num1, num2, operator, questionType;
+        
+        // Determine question type based on mode
+        const types = [];
+        if (['multiplication', 'mixed', 'survival', 'timer'].includes(currentMode)) types.push('multiplication');
+        if (['division', 'mixed', 'survival', 'timer'].includes(currentMode)) types.push('division');
+        questionType = types[Math.floor(Math.random() * types.length)];
 
-// --- Init ---
-initUI()
-showMenu()
+        if (questionType === 'multiplication') {
+            num1 = Math.floor(Math.random() * 12) + 1;
+            num2 = Math.floor(Math.random() * 12) + 1;
+            currentCorrectAnswer = num1 * num2;
+            operator = '×';
+        } else { // Division
+            const divisor = Math.floor(Math.random() * 12) + 1;
+            const result = Math.floor(Math.random() * 12) + 1;
+            num1 = divisor * result;
+            num2 = divisor;
+            currentCorrectAnswer = result;
+            operator = '÷';
+        }
+
+        questionDisplay.textContent = ${num1} ${operator} ${num2} = ?;
+        generateOptions();
+    }
+    
+    function generateOptions() {
+        const options = new Set([currentCorrectAnswer]);
+        while (options.size < 4) {
+            const range = Math.max(5, Math.ceil(currentCorrectAnswer * 0.2));
+            const randomOffset = Math.floor(Math.random() * range * 2) - range;
+            const distractor = currentCorrectAnswer + randomOffset;
+            if (distractor !== currentCorrectAnswer && distractor > 0) {
+                options.add(distractor);
+            }
+        }
+        
+        const shuffledOptions = Array.from(options).sort(() => Math.random() - 0.5);
+        
+        optionsContainer.innerHTML = '';
+        shuffledOptions.forEach(option => {
+            const button = document.createElement('button');
+            button.classList.add('option-btn');
+            button.textContent = option;
+            button.addEventListener('click', selectAnswer);
+            optionsContainer.appendChild(button);
+        });
+    }
+
+    function selectAnswer(e) {
+        const selectedButton = e.target;
+        const selectedAnswer = parseInt(selectedButton.textContent);
+        
+        // Disable all buttons after an answer is chosen
+        document.querySelectorAll('.option-btn').forEach(btn => btn.disabled = true);
+
+        if (selectedAnswer === currentCorrectAnswer) {
+            score++;
+            selectedButton.classList.add('correct');
+            feedbackDisplay.textContent = '✓ Correct!';
+            playSound(playCorrectSound);
+        } else {
+            lives--;
+            selectedButton.classList.add('wrong');
+            feedbackDisplay.textContent = ✗ Wrong! The answer was ${currentCorrectAnswer};
+            playSound(playWrongSound);
+            
+            // Highlight the correct answer
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                if (parseInt(btn.textContent) === currentCorrectAnswer) {
+                    btn.classList.add('correct');
+                }
+            });
+        }
+        
+        updateHUD();
+
+        if (currentMode === 'survival' && lives <= 0) {
+            setTimeout(() => endGame(false), 1500);
+            return;
+        }
+        
+        setTimeout(nextQuestion, 1500);
+    }
+    
+    function endGame(isWin) {
+        finalScoreDisplay.textContent = score;
+        if (currentMode === 'timer') {
+            endTitle.textContent = "Time's Up!";
+            endMessage.textContent = score > 15 ? "Amazing job! You're a speed demon!" : "Great effort! Keep practicing!";
+            isWin = score > 15;
+        } else if (currentMode === 'survival') {
+            endTitle.textContent = 'Game Over!';
+            endMessage.textContent = "You ran out of lives. Better luck next time!";
+            isWin = false;
+        }
+        playSound(isWin ? playWinSound : playLoseSound);
+        showScreen('end-screen');
+    }
+
+    // Initial load
+    showScreen('main-menu');
+});
