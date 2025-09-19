@@ -2,96 +2,510 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Math Challenge: Multiply & Divide</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Multiplication Game — MathVerse Mini</title>
+  <style>
+    /* ====== Basic reset ====== */
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body,#root{height:100%}
+    body{
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      background:linear-gradient(180deg,#e8f5ff 0%, #d0eaff 50%, #b6dcff 100%);
+      color:#05263b;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:20px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    /* ====== App container ====== */
+    .app {
+      width:100%;
+      max-width:980px;
+      background:linear-gradient(180deg, rgba(33,150,243,0.12), rgba(13,71,161,0.04));
+      border-radius:18px;
+      box-shadow: 0 8px 30px rgba(9,30,66,0.12);
+      padding:22px;
+    }
+
+    header{
+      text-align:center;
+      margin-bottom:18px;
+    }
+    h1{font-size:28px;color:#013a63;letter-spacing:0.2px}
+    p.lead{font-size:14px;color:#09415a;margin-top:6px;opacity:0.95}
+
+    /* ====== 3-grid layout for menu ====== */
+    .menu-grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:14px;
+      margin-bottom:18px;
+    }
+    /* On wider screens: 2 columns where top item spans both columns */
+    @media(min-width:720px){
+      .menu-grid{
+        grid-template-columns: 1fr 1fr;
+        grid-auto-rows: 160px;
+      }
+      .learn-card{grid-column: 1 / -1; height:240px}
+    }
+
+    .card {
+      background: linear-gradient(135deg, rgba(33,150,243,0.14), rgba(3,105,161,0.06));
+      border-radius:14px;
+      padding:18px;
+      display:flex;
+      align-items:center;
+      gap:14px;
+      cursor:pointer;
+      transition: transform .14s ease, box-shadow .14s ease;
+      border:1px solid rgba(4,40,90,0.06);
+      box-shadow: 0 6px 18px rgba(9,30,66,0.06);
+      user-select:none;
+    }
+    .card:hover{ transform: translateY(-6px); box-shadow: 0 12px 30px rgba(9,30,66,0.12)}
+    .card:active{ transform: translateY(-2px)}
+
+    .icon {
+      width:64px;height:64px;border-radius:12px;
+      background:linear-gradient(180deg,#44a3ff,#0f6ed6);
+      display:flex;align-items:center;justify-content:center;
+      color:white;font-weight:700;font-size:28px;
+      box-shadow: 0 6px 18px rgba(13,71,161,0.18);
+    }
+
+    .card .meta{flex:1}
+    .card .meta h3{font-size:18px;color:#022e50;margin-bottom:6px}
+    .card .meta small{color:#04344f;opacity:0.9}
+
+    /* ====== Game board ====== */
+    .game-board{display:none}
+    .top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .score, .status{
+      background:rgba(255,255,255,0.9);
+      padding:8px 12px;border-radius:10px;font-weight:600;color:#01243a;
+      box-shadow: 0 4px 10px rgba(2,20,40,0.04);
+    }
+
+    .question-card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.82));
+      border-radius:12px;padding:28px;text-align:center;margin-bottom:14px;
+      box-shadow: 0 10px 24px rgba(2,20,40,0.05);
+    }
+    .question-card .q{font-size:36px;font-weight:800;color:#023a63}
+    .answers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .answer-btn{
+      background:linear-gradient(180deg,#ffffff,#f3fbff);
+      border:2px solid rgba(3,60,100,0.06);
+      padding:14px;border-radius:12px;font-size:18px;font-weight:700;color:#033a5a;cursor:pointer;
+      transition: transform .08s ease, box-shadow .08s ease; text-align:center;
+    }
+    .answer-btn:hover{ transform: translateY(-4px); box-shadow: 0 8px 20px rgba(2,20,40,0.06)}
+    .answer-btn.disabled{opacity:0.6;pointer-events:none}
+
+    /* correct / wrong states */
+    .correct{background:linear-gradient(180deg,#e6ffef,#c9f6db);border-color:#69d88b;color:#054d2a;box-shadow:0 6px 18px rgba(0,90,40,0.06)}
+    .wrong{background:linear-gradient(180deg,#ffecec,#ffd6d6);border-color:#ff8f8f;color:#5a1212;box-shadow:0 6px 18px rgba(140,20,20,0.06)}
+
+    /* ====== Learn table ====== */
+    .tables-grid{display:none; gap:10px}
+    .table-card{
+      background:white;border-radius:12px;padding:12px;box-shadow:0 8px 20px rgba(2,20,40,0.04);
+      overflow:auto;
+    }
+    .mult-grid{display:grid;grid-template-columns:repeat(12, minmax(32px,1fr));gap:6px}
+    .cell{
+      background:linear-gradient(180deg,#f7fbff,#f0f9ff);padding:8px;border-radius:8px;text-align:center;
+      font-weight:600;color:#044163;cursor:pointer;transition:transform .08s ease;
+    }
+    .cell:hover{transform:translateY(-3px)}
+    .cell.active{background:linear-gradient(180deg,#fff2c3,#ffe889);color:#5a3b00;box-shadow:0 6px 16px rgba(90,60,10,0.06)}
+
+    /* ====== Footer / controls ====== */
+    .controls{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:14px}
+    .btn-ghost{background:transparent;border:1px solid rgba(3,60,100,0.08);padding:8px 12px;border-radius:10px;cursor:pointer}
+    .btn-primary{background:linear-gradient(90deg,#2196f3,#1565c0);color:white;border-radius:10px;padding:10px 14px;border:none;cursor:pointer}
+
+    /* mobile tweaks */
+    @media(max-width:719px){
+      .icon{width:56px;height:56px;font-size:24px}
+      .card{padding:14px}
+      .answer-btn{font-size:16px;padding:12px}
+    }
+  </style>
 </head>
 <body>
-  <div class="app">
-    <!-- Header -->
-    <header class="header">
-      <h1>Math Challenge: Multiply &amp; Divide</h1>
-      <div class="status-bar">
-        <div class="left">
-          <div class="score">Score: <span id="score">0</span></div>
-          <div class="highscore">Best: <span id="highscore">0</span></div>
-        </div>
-        <div class="mode">Mode: <span id="mode-label">-</span></div>
-        <div class="timer-hearts">
-          <div id="timer" class="timer">--</div>
-          <div id="hearts" class="hearts">---</div>
-        </div>
-      </div>
+  <div class="app" id="root" role="application" aria-label="Multiplication Game App">
+    <header>
+      <h1>MathVerse — Multiplication Mini</h1>
+      <p class="lead">Practice multiplication with Learn / Time (60s) / Life (3 lives) modes</p>
     </header>
 
-    <!-- Screens -->
-    <main class="main">
-
-      <!-- Menu -->
-      <section id="menu-screen" class="screen active">
-        <div class="menu-card">
-          <h2>Choose a mode</h2>
-
-          <div class="menu-controls">
-            <label>Difficulty:</label>
-            <div class="difficulty">
-              <button class="btn diff" data-diff="easy">Easy</button>
-              <button class="btn diff" data-diff="medium">Medium</button>
-              <button class="btn diff" data-diff="hard">Hard</button>
-            </div>
-          </div>
-
-          <div class="menu-buttons">
-            <button class="btn" data-mode="practice">Practice Mode (Unlimited)</button>
-            <button class="btn" data-mode="survival">Survival Mode (3 Hearts)</button>
-            <button class="btn" data-mode="timer">Timer Mode (60s)</button>
-          </div>
-
-          <div class="extras">
-            <button id="toggle-sound" class="btn ghost">Toggle Sound</button>
-            <button id="reset-highscore" class="btn ghost">Reset Best Score</button>
-          </div>
-
-          <p class="hint">Practice multiplication &amp; division with a clean blue UI. Built with HTML/CSS/JS.</p>
-        </div>
-      </section>
-
-      <!-- Game -->
-      <section id="game-screen" class="screen">
-        <div class="game-card">
-          <div class="question-area">
-            <div id="question" class="question">Ready?</div>
-          </div>
-
-          <div class="answers-grid" id="answers"></div>
-
-          <div class="controls">
-            <button id="next-btn" class="btn ghost" hidden>Next</button>
-            <button id="quit-btn" class="btn ghost">Back to Menu</button>
+    <!-- ===== MAIN MENU (3-grid layout) ===== -->
+    <section id="main-menu">
+      <div class="menu-grid" role="navigation" aria-label="Main menu">
+        <!-- Learn Mode (largest) -->
+        <div class="card learn-card" id="btn-learn" tabindex="0" role="button" aria-pressed="false" aria-label="Learn tables">
+          <div class="icon">📖</div>
+          <div class="meta">
+            <h3>Learn Mode — Multiplication Tables</h3>
+            <small>Browse 1×1 → 12×12. Click a cell to highlight.</small>
           </div>
         </div>
-      </section>
 
-      <!-- Result -->
-      <section id="result-screen" class="screen">
-        <div class="result-card">
-          <h2>Game Over</h2>
-          <p>Final Score: <span id="final-score">0</span></p>
-          <p>Best Score: <span id="result-high">0</span></p>
-          <div class="result-buttons">
-            <button id="play-again" class="btn">Play Again</button>
-            <button id="back-menu" class="btn ghost">Back to Menu</button>
+        <!-- Time Mode -->
+        <div class="card" id="btn-time" tabindex="0" role="button" aria-pressed="false" aria-label="Time mode">
+          <div class="icon">⏱</div>
+          <div class="meta">
+            <h3>Time Mode</h3>
+            <small>60 seconds — answer as many as you can.</small>
           </div>
         </div>
-      </section>
 
-    </main>
+        <!-- Life Mode -->
+        <div class="card" id="btn-life" tabindex="0" role="button" aria-pressed="false" aria-label="Life mode">
+          <div class="icon">❤️</div>
+          <div class="meta">
+            <h3>Life Mode</h3>
+            <small>3 lives — lose 1 life on each wrong answer.</small>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    <footer class="footer">
-      <small>Made with ❤️ — Focused on multiplication &amp; division practice</small>
+    <!-- ===== LEARN MODE UI ===== -->
+    <section class="tables-grid" id="learn-section" aria-hidden="true">
+      <div class="table-card">
+        <h2 style="margin-bottom:8px">Multiplication Table (1–12)</h2>
+        <div style="font-size:13px;color:#06445a;margin-bottom:10px">Tap any cell to highlight it</div>
+        <div id="tables" class="mult-grid" aria-live="polite"></div>
+        <div class="controls">
+          <button class="btn-ghost" id="learn-back">Back</button>
+          <div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== GAME BOARD (shared by Time & Life modes) ===== -->
+    <section class="game-board" id="game-section" aria-hidden="true">
+      <div class="top-bar" role="status" aria-live="polite">
+        <div class="score" id="score">Score: 0</div>
+        <div class="status" id="status">Mode</div>
+      </div>
+
+      <div class="question-card" role="region" aria-labelledby="current-question">
+        <div class="q" id="current-question">— × — = ?</div>
+      </div>
+
+      <div class="answers" id="answers" role="list">
+        <!-- Answer buttons injected here -->
+      </div>
+
+      <div id="feedback" style="height:46px;margin-top:12px;"></div>
+
+      <div class="controls">
+        <button class="btn-ghost" id="btn-back">Back</button>
+        <div>
+          <button class="btn-primary" id="btn-skip">Skip</button>
+        </div>
+      </div>
+    </section>
+
+    <footer style="margin-top:14px;text-align:center;font-size:12px;color:#083b53;opacity:0.85">
+      Tip: use 1–4 keys to pick answers. Scores reset when you leave.
     </footer>
   </div>
 
-  <script src="script.js"></script>
+  <script>
+    /* ============================
+       Simple Multiplication Game
+       - Mode: "time" (60s) or "life" (3 lives)
+       - Learn mode shows full table and clickable cells
+       - Multiple-choice answers (4 options)
+       - Auto-advance after short delay
+       ============================ */
+
+    (function(){
+      // Elements
+      const btnLearn = document.getElementById('btn-learn');
+      const btnTime = document.getElementById('btn-time');
+      const btnLife = document.getElementById('btn-life');
+      const mainMenu = document.getElementById('main-menu');
+      const learnSection = document.getElementById('learn-section');
+      const gameSection = document.getElementById('game-section');
+      const tablesDiv = document.getElementById('tables');
+      const scoreEl = document.getElementById('score');
+      const statusEl = document.getElementById('status');
+      const qEl = document.getElementById('current-question');
+      const answersEl = document.getElementById('answers');
+      const feedbackEl = document.getElementById('feedback');
+      const btnBack = document.getElementById('btn-back');
+      const btnLearnBack = document.getElementById('learn-back');
+      const btnSkip = document.getElementById('btn-skip');
+
+      // State
+      let mode = null; // 'time' or 'life'
+      let score = 0;
+      let lives = 3;
+      let timeLeft = 60;
+      let timerInterval = null;
+      let awaiting = false; // disable choices while showing feedback
+      let currentQuestion = null; // {a,b,correct,choices}
+
+      // Utility: random int inclusive
+      function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min }
+
+      // Generate a multiplication question
+      function makeQuestion(){
+        const a = randInt(1,12), b = randInt(1,12)
+        const correct = a*b
+        const choices = makeChoices(correct,a,b)
+        return {a,b,correct,choices}
+      }
+
+      // Make 3 plausible distractors plus correct answer, shuffle
+      function makeChoices(correct,a,b){
+        const s = new Set([correct])
+        while(s.size < 4){
+          // plausible distractors:
+          // - swap: a+b (somewhat plausible), -/+ small delta, or multiply with neighbor
+          const r = Math.random()
+          let cand
+          if(r < 0.25) cand = (a + (Math.random()<0.5?-1:1)) * b  // change a by ±1
+          else if(r < 0.5) cand = a * (b + (Math.random()<0.5?-1:1)) // change b by ±1
+          else if(r < 0.8) cand = correct + (Math.random()<0.5?-1:1) * randInt(1,4)
+          else cand = Math.max(1, Math.round(correct * (1 + (Math.random()<0.5?-0.2:0.2))))
+          if(cand > 0) s.add(cand)
+        }
+        // shuffle
+        const arr = Array.from(s)
+        for(let i=arr.length-1;i>0;i--){
+          const j = Math.floor(Math.random()*(i+1))
+          [arr[i],arr[j]]=[arr[j],arr[i]]
+        }
+        return arr
+      }
+
+      // Render question & answers
+      function renderQuestion(q){
+        currentQuestion = q
+        qEl.textContent = ${q.a} × ${q.b} = ?
+        // clear previous answers
+        answersEl.innerHTML = ''
+        q.choices.forEach((c, idx) => {
+          const btn = document.createElement('button')
+          btn.className = 'answer-btn'
+          btn.textContent = c
+          btn.setAttribute('data-value', c)
+          btn.setAttribute('role','button')
+          btn.tabIndex = 0
+          btn.addEventListener('click', () => handleAnswer(c, btn))
+          answersEl.appendChild(btn)
+        })
+      }
+
+      // Handle answer selection
+      function handleAnswer(value, btnEl){
+        if(awaiting) return
+        awaiting = true
+        // disable other buttons visually
+        Array.from(answersEl.children).forEach(b => b.classList.add('disabled'))
+        const chosen = Number(value)
+        const correct = currentQuestion.correct
+        if(chosen === correct){
+          // correct
+          btnEl.classList.add('correct')
+          showFeedback('Correct!', true)
+          score += 10
+          updateScore()
+        } else {
+          // wrong
+          btnEl.classList.add('wrong')
+          // highlight correct button
+          const correctBtn = Array.from(answersEl.children).find(b => Number(b.dataset.value) === correct)
+          if(correctBtn) correctBtn.classList.add('correct')
+          showFeedback(Wrong — Correct: ${correct}, false)
+          if(mode === 'life'){
+            lives -= 1
+            updateStatus()
+            if(lives <= 0){
+              // game over after brief pause
+              setTimeout(endGame, 900)
+              return
+            }
+          }
+        }
+        // auto next after short delay
+        setTimeout(()=>{
+          awaiting = false
+          // if still in game and not ended, show next question
+          if(mode === 'time' && timeLeft <= 0) return endGame()
+          if(mode === 'life' && lives <= 0) return endGame()
+          renderQuestion(makeQuestion())
+          clearFeedback()
+        }, 900)
+      }
+
+      // Show feedback (text)
+      function showFeedback(text, positive){
+        feedbackEl.textContent = text
+        feedbackEl.style.color = positive ? '#075a2b' : '#7a1212'
+        feedbackEl.style.fontWeight = 700
+      }
+      function clearFeedback(){
+        feedbackEl.textContent = ''
+      }
+
+      function updateScore(){ scoreEl.textContent = Score: ${score} }
+
+      function updateStatus(){
+        if(mode === 'time') statusEl.textContent = Time: ${timeLeft}s
+        else if(mode === 'life') statusEl.textContent = Lives: ${'❤'.repeat(lives)}
+      }
+
+      // Start Time mode
+      function startTimeMode(){
+        mode = 'time'
+        score = 0; lives = 3; timeLeft = 60
+        showGameUI()
+        updateScore(); updateStatus()
+        renderQuestion(makeQuestion())
+        // timer
+        clearInterval(timerInterval)
+        timerInterval = setInterval(()=>{
+          timeLeft -= 1
+          updateStatus()
+          if(timeLeft <= 0){
+            clearInterval(timerInterval)
+            endGame()
+          }
+        }, 1000)
+      }
+
+      // Start Life mode
+      function startLifeMode(){
+        mode = 'life'
+        score = 0; lives = 3; timeLeft = null
+        showGameUI()
+        updateScore(); updateStatus()
+        renderQuestion(makeQuestion())
+      }
+
+      // End game flow
+      function endGame(){
+        // stop timers
+        clearInterval(timerInterval)
+        awaiting = false
+        // show final modal-like summary (simple alert for now)
+        const msg = Game Over — Mode: ${mode === 'time' ? 'Time (60s)' : 'Life (3 lives)'}\\nScore: ${score}
+        // Optionally let user restart or back to menu
+        setTimeout(()=> {
+          if(confirm(msg + '\\n\\nPlay again?')) {
+            if(mode === 'time') startTimeMode()
+            else startLifeMode()
+          } else {
+            backToMenu()
+          }
+        }, 200)
+      }
+
+      // Skip a question (for convenience)
+      btnSkip.addEventListener('click', ()=>{
+        if(awaiting) return
+        renderQuestion(makeQuestion())
+      })
+
+      // Back to menu
+      function backToMenu(){
+        clearInterval(timerInterval)
+        mode = null
+        awaiting = false
+        mainMenu.style.display = ''
+        learnSection.style.display = 'none'
+        gameSection.style.display = 'none'
+      }
+      btnBack.addEventListener('click', backToMenu)
+      btnLearnBack.addEventListener('click', backToMenu)
+
+      // Show game UI
+      function showGameUI(){
+        mainMenu.style.display = 'none'
+        learnSection.style.display = 'none'
+        gameSection.style.display = ''
+        statusEl.textContent = mode === 'time' ? Time: ${timeLeft}s : Lives: ${'❤'.repeat(lives)}
+      }
+
+      // Learn Mode: render table 1..12 as clickable cells
+      function renderTables(){
+        tablesDiv.innerHTML = ''
+        // We'll render a 12x12 block (headerless, each cell is "a×b=c")
+        for(let a=1;a<=12;a++){
+          for(let b=1;b<=12;b++){
+            const cell = document.createElement('div')
+            cell.className = 'cell'
+            cell.textContent = ${a}×${b}=${a*b}
+            cell.tabIndex = 0
+            cell.addEventListener('click', ()=> {
+              // toggle highlight
+              cell.classList.toggle('active')
+            })
+            cell.addEventListener('keydown', (e) => {
+              if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cell.click() }
+            })
+            tablesDiv.appendChild(cell)
+          }
+        }
+      }
+
+      // Keyboard shortcuts: 1-4 to choose answers, Esc to back to menu
+      document.addEventListener('keydown', (e)=>{
+        if(gameSection.style.display === ''){ // not visible
+          return
+        }
+        if(e.key >= '1' && e.key <= '4'){
+          const idx = Number(e.key) - 1
+          const btn = answersEl.children[idx]
+          if(btn && !btn.classList.contains('disabled')) btn.click()
+        } else if(e.key === 'Escape'){
+          backToMenu()
+        }
+      })
+
+      // Menu button handlers
+      btnLearn.addEventListener('click', ()=> {
+        mainMenu.style.display = 'none'
+        learnSection.style.display = ''
+        gameSection.style.display = 'none'
+        renderTables()
+      })
+      btnTime.addEventListener('click', ()=> {
+        mainMenu.style.display = 'none'
+        learnSection.style.display = 'none'
+        startTimeMode()
+      })
+      btnLife.addEventListener('click', ()=> {
+        mainMenu.style.display = 'none'
+        learnSection.style.display = 'none'
+        startLifeMode()
+      })
+
+      // Also allow Enter key to activate focused menu card
+      [btnLearn, btnTime, btnLife].forEach(btn => {
+        btn.addEventListener('keydown', (e)=>{
+          if(e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault(); btn.click()
+          }
+        })
+      })
+
+      // On initial load, main menu is visible (default)
+      mainMenu.style.display = ''
+      learnSection.style.display = 'none'
+      gameSection.style.display = 'none'
+    })();
+  </script>
 </body>
 </html>
