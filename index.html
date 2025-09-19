@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Math Challenge: Multiply & Divide</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <h1>Math Challenge: Multiply &amp; Divide</h1>
+      <div class="status-bar">
+        <div class="left">
+          <div class="score">Score: <span id="score">0</span></div>
+          <div class="highscore">Best: <span id="highscore">0</span></div>
+        </div>
+        <div class="mode">Mode: <span id="mode-label">-</span></div>
+        <div class="timer-hearts">
+          <div id="timer" class="timer">--</div>
+          <div id="hearts" class="hearts">---</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Screens -->
+    <main class="main">
+
+      <!-- Menu -->
+      <section id="menu-screen" class="screen active">
+        <div class="menu-card">
+          <h2>Choose a mode</h2>
+
+          <div class="menu-controls">
+            <label>Difficulty:</label>
+            <div class="difficulty">
+              <button class="btn diff" data-diff="easy">Easy</button>
+              <button class="btn diff" data-diff="medium">Medium</button>
+              <button class="btn diff" data-diff="hard">Hard</button>
+            </div>
+          </div>
+
+          <div class="menu-buttons">
+            <button class="btn" data-mode="practice">Practice Mode (Unlimited)</button>
+            <button class="btn" data-mode="survival">Survival Mode (3 Hearts)</button>
+            <button class="btn" data-mode="timer">Timer Mode (60s)</button>
+          </div>
+
+          <div class="extras">
+            <button id="toggle-sound" class="btn ghost">Toggle Sound</button>
+            <button id="reset-highscore" class="btn ghost">Reset Best Score</button>
+          </div>
+
+          <p class="hint">Practice multiplication &amp; division with a clean blue UI. Built with HTML/CSS/JS.</p>
+        </div>
+      </section>
+
+      <!-- Game -->
+      <section id="game-screen" class="screen">
+        <div class="game-card">
+          <div class="question-area">
+            <div id="question" class="question">Ready?</div>
+          </div>
+
+          <div class="answers-grid" id="answers"></div>
+
+          <div class="controls">
+            <button id="next-btn" class="btn ghost" hidden>Next</button>
+            <button id="quit-btn" class="btn ghost">Back to Menu</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Result -->
+      <section id="result-screen" class="screen">
+        <div class="result-card">
+          <h2>Game Over</h2>
+          <p>Final Score: <span id="final-score">0</span></p>
+          <p>Best Score: <span id="result-high">0</span></p>
+          <div class="result-buttons">
+            <button id="play-again" class="btn">Play Again</button>
+            <button id="back-menu" class="btn ghost">Back to Menu</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <small>Made with ❤️ — Focused on multiplication &amp; division practice</small>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
